@@ -1,0 +1,65 @@
+FEATURE CATALOG — Walmart Revenue Forecasting
+============================================================
+
+TARGET COLUMN
+  revenue                    Daily store revenue ($). NaN in test set.
+
+DATE FEATURES  (18 columns)
+  year/month/day/dayofweek   Raw calendar components
+  dayofyear / weekofyear     Day/week position within year
+  quarter                    1–4
+  is_weekend                 1 if Sat/Sun else 0
+  is_month_start/end         First/last day of month
+  day_of_quarter             Day within Q1–Q4 (0-indexed)
+  time_idx                   Days since 2011-01-29 (trend proxy)
+  sin/cos_dow                Cyclical day-of-week encoding
+  sin/cos_doy                Cyclical day-of-year encoding
+  sin/cos_month              Cyclical month encoding
+
+LAG FEATURES  (23 columns)
+  lag_7/14/21/28/35/42/56    Revenue N days ago — NEED RECURSIVE FILL for test
+  lag_364/365/371            Same period last year — SAFE for full test window
+  *** For direct (non-recursive) models: use only lag_364/365/371 ***
+
+ROLLING FEATURES  (14 columns)
+  rolling_mean_7/14/28/56    Mean revenue over last N days (shift=1, no leakage)
+  rolling_std_7/14/28/56     Std dev over last N days
+  expanding_mean             Mean over all prior history
+  yoy_ratio_28d              rolling_mean_28 / lag_364.rolling(28)
+
+EVENT / HOLIDAY FEATURES  (37 columns)
+  event_<name>               Binary: 1 on that specific event day
+  is_store_closed            1 on Christmas + New Year (revenue hard-zeroed)
+  event_type_*               Sports / National / Religious / Cultural flag
+  is_any_event               1 if any event that day
+  days_to_next_event         Days until next calendar event
+  days_since_last_event      Days since last calendar event
+  days_to_thanksgiving       Signed offset within ramp window (neg=before)
+  in_thanksgiving_window     1 if within ±7 days of Thanksgiving
+  days_to_christmas          Signed offset within ramp window (neg=before)
+  in_christmas_window        1 if within ±14 days of Christmas
+  is_black_friday            1 on the day after Thanksgiving
+  is_cyber_monday            1 on the Monday after Thanksgiving
+
+STORE FEATURES  (4 columns)
+  region_enc                 0=aggregate 1=California 2=Texas 3=Wisconsin
+  store_mean / store_std     Revenue baseline and spread for that store
+  lag364_vs_store_mean       lag_364 / store_mean (relative scale)
+  rolling28_vs_store_mean    rolling_mean_28 / store_mean
+
+INTERACTION FEATURES  (3 columns)
+  event_x_weekend            is_any_event × is_weekend
+  pre_xmas_weekend           Weekend AND Dec 12+ AND Q4
+  yoy_delta_364              revenue - lag_364 (YoY change; NaN in test)
+  lag7_vs_lag14              lag_7 - lag_14 (short-term momentum)
+
+TOTAL FEATURE COUNT: 96
+
+MODELING NOTES
+  1. is_store_closed=1 → force prediction to 0 (Christmas, New Year)
+  2. Hierarchical: store_0 prediction should equal sum(stores 1–10)
+  3. For LightGBM/XGBoost: use lag_364+365+371 + date + event features
+     for a DIRECT forecast (no recursion required)
+  4. For recursive forecasting: predict day-by-day, fill short lags
+     from prior predictions before moving to the next day
+  5. Prophet: pass calendar events as custom holidays

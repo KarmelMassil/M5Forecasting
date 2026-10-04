@@ -1,0 +1,9 @@
+pandas>=1.5
+numpy>=1.23
+matplotlib>=3.6
+seaborn>=0.12
+scikit-learn>=1.1
+lightgbm>=4.0
+optuna>=3.0
+scipy>=1.9
+statsmodels>=0.13
